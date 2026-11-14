@@ -134,7 +134,7 @@ final class Proot {
         new Thread(
             () -> {
               try (InputStream in = process.getInputStream()) {
-                in.transferTo(output);
+                Rootfs.copy(in, output);
               } catch (IOException ignored) {
                 // 进程被结束时流会关闭
               }
@@ -184,7 +184,7 @@ final class Proot {
     File partial = new File(target.getPath() + ".part");
     try (InputStream in = new FileInputStream(source);
         OutputStream out = new FileOutputStream(partial)) {
-      in.transferTo(out);
+      Rootfs.copy(in, out);
     }
     if (!partial.renameTo(target)) throw new IOException("无法写入 " + target);
   }

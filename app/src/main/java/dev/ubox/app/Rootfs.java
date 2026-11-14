@@ -5,6 +5,7 @@ import android.content.res.AssetFileDescriptor;
 import android.system.ErrnoException;
 import android.system.Os;
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -135,7 +136,7 @@ final class Rootfs {
   private static void addAndroidGroups(File root) throws IOException {
     Set<String> gids = new LinkedHashSet<>();
     try (InputStream in = new FileInputStream("/proc/self/status")) {
-      for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n"))
+      for (String line : new String(readAll(in), StandardCharsets.UTF_8).split("\n"))
         if (line.startsWith("Groups:"))
           for (String gid : line.substring(7).trim().split("\\s+")) if (!gid.isEmpty()) gids.add(gid);
     }
@@ -254,14 +255,26 @@ final class Rootfs {
   private static void copyFile(File source, File target) throws IOException {
     try (InputStream in = new FileInputStream(source);
         OutputStream out = new FileOutputStream(target)) {
-      in.transferTo(out);
+      copy(in, out);
     }
     chmod(target, source.canExecute() ? 0755 : 0644);
   }
 
+  /** InputStream.transferTo 要 API 33 才有，手写循环替代，Android 8 起都能跑。 */
+  static void copy(InputStream in, OutputStream out) throws IOException {
+    byte[] buffer = new byte[1 << 16];
+    for (int n; (n = in.read(buffer)) != -1; ) out.write(buffer, 0, n);
+  }
+
+  static byte[] readAll(InputStream in) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    copy(in, out);
+    return out.toByteArray();
+  }
+
   private static String read(File file) {
     try (InputStream in = new FileInputStream(file)) {
-      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+      return new String(readAll(in), StandardCharsets.UTF_8);
     } catch (IOException missing) {
       return "";
     }
@@ -284,7 +297,7 @@ final class Rootfs {
 
   private static String readAsset(Context context, String name) throws IOException {
     try (InputStream in = context.getAssets().open(name)) {
-      return new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
+      return new String(readAll(in), StandardCharsets.UTF_8).trim();
     }
   }
 
@@ -294,7 +307,7 @@ final class Rootfs {
     target.delete();
     try (InputStream in = context.getAssets().open(asset);
         OutputStream out = new FileOutputStream(target)) {
-      in.transferTo(out);
+      copy(in, out);
     }
     chmod(target, mode);
   }

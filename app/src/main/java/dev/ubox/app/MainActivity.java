@@ -37,6 +37,7 @@ import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends Activity {
@@ -261,6 +262,11 @@ public class MainActivity extends Activity {
   }
 
   private void requestStorage() {
+    // isExternalStorageManager 是 API 30 才有的方法，低版本直接提示避免崩溃
+    if (Build.VERSION.SDK_INT < 30) {
+      Toast.makeText(this, "存储授权功能需要 Android 11 及以上系统", Toast.LENGTH_LONG).show();
+      return;
+    }
     if (Environment.isExternalStorageManager()) {
       Toast.makeText(this, "已授权，新会话中可访问 /sdcard", Toast.LENGTH_SHORT).show();
       return;
@@ -280,7 +286,7 @@ public class MainActivity extends Activity {
             (dialog, which) -> {
               if (service != null) {
                 service.setOnExit(null);
-                for (TerminalSession s : List.copyOf(service.sessions())) service.removeSession(s);
+                for (TerminalSession s : new ArrayList<>(service.sessions())) service.removeSession(s);
               }
               showInstall("正在删除旧环境…");
               new Thread(
